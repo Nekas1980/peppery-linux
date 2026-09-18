@@ -1,0 +1,56 @@
+name: Publish Peppery Boot Preview
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/publish-boot-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish-preview:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download successful Peppery image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: peppery-linux-0.1.0-dev-amd64
+          path: downloaded-artifact
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          repository: Nekas1980/peppery-linux
+          run-id: 35395963779
+
+      - name: Locate boot screenshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          SCREENSHOT="$(find downloaded-artifact -type f -name 'peppery-boot.png' | head -n 1)"
+          test -n "$SCREENSHOT"
+          mkdir -p docs/images
+          cp "$SCREENSHOT" docs/images/peppery-boot.png
+          file docs/images/peppery-boot.png
+          ls -lh docs/images/peppery-boot.png
+
+      - name: Commit real boot screenshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/images/peppery-boot.png
+
+          if git diff --cached --quiet; then
+            echo "Boot preview is already up to date."
+            exit 0
+          fi
+
+          git commit -m "docs: add real Peppery Linux boot screenshot"
+          git push
