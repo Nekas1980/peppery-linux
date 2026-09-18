@@ -43,6 +43,8 @@ jobs:
             python3 \
             python3-yaml \
             shellcheck \
+            socat \
+            python3-pil \
             zstd
 
       - name: Install ubuntu-image
@@ -70,32 +72,65 @@ jobs:
           sudo fdisk -l "$IMAGE" | tee build/out/partition-table.txt
           sha256sum "$IMAGE" | tee build/out/SHA256SUMS
 
-      - name: QEMU boot smoke test
+      - name: QEMU UEFI boot and screenshot test
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p build/test
-          set +e
-          timeout 120s qemu-system-x86_64 \
-            -machine accel=tcg \
-            -m 2048 \
-            -smp 2 \
-            -drive "file=$PEPPERY_IMAGE,format=raw,if=virtio" \
-            -nographic \
-            -no-reboot \
-            > build/test/qemu-boot.log 2>&1
-          STATUS=$?
-          set -e
 
-          echo "QEMU exit status: $STATUS"
+          OVMF_CODE="/usr/share/OVMF/OVMF_CODE_4M.fd"
+          OVMF_VARS_SOURCE="/usr/share/OVMF/OVMF_VARS_4M.fd"
+          OVMF_VARS="build/test/OVMF_VARS.fd"
+          MONITOR="/tmp/peppery-qemu-monitor.sock"
+
+          test -f "$OVMF_CODE"
+          test -f "$OVMF_VARS_SOURCE"
+          cp "$OVMF_VARS_SOURCE" "$OVMF_VARS"
+          rm -f "$MONITOR"
+
+          qemu-system-x86_64 \
+            -machine accel=tcg \
+            -m 3072 \
+            -smp 2 \
+            -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+            -drive "if=pflash,format=raw,file=$OVMF_VARS" \
+            -drive "file=$PEPPERY_IMAGE,format=raw,if=virtio" \
+            -device virtio-vga \
+            -display none \
+            -serial "file:build/test/qemu-boot.log" \
+            -monitor "unix:$MONITOR,server=on,wait=off" \
+            -no-reboot \
+            -daemonize
+
+          echo "QEMU started in UEFI mode."
+          sleep 150
+
+          if [[ -S "$MONITOR" ]]; then
+            printf 'screendump build/test/peppery-boot.ppm\nquit\n' | socat - "UNIX-CONNECT:$MONITOR" || true
+          fi
+
+          if [[ -f build/test/peppery-boot.ppm ]]; then
+            python3 - <<'PY'
+from PIL import Image
+image = Image.open("build/test/peppery-boot.ppm")
+image.save("build/test/peppery-boot.png")
+print("Saved build/test/peppery-boot.png")
+PY
+          else
+            echo "::warning::QEMU did not produce a VGA screenshot."
+          fi
+
           tail -n 200 build/test/qemu-boot.log || true
 
           if grep -Eiq 'Linux version|systemd|Ubuntu|GRUB' build/test/qemu-boot.log; then
             echo "PEPPERY_QEMU_BOOT_EVIDENCE=found" >> "$GITHUB_ENV"
             echo "Boot evidence detected in QEMU serial output."
+          elif [[ -f build/test/peppery-boot.png ]]; then
+            echo "PEPPERY_QEMU_BOOT_EVIDENCE=screenshot-only" >> "$GITHUB_ENV"
+            echo "Graphical screenshot captured; serial evidence was not detected."
           else
             echo "PEPPERY_QEMU_BOOT_EVIDENCE=not-detected" >> "$GITHUB_ENV"
-            echo "::warning::No serial boot evidence detected. The image may still boot graphically; manual VM validation remains required."
+            echo "::warning::No boot evidence detected."
           fi
 
       - name: Compress image
@@ -118,6 +153,7 @@ jobs:
             build/out/SHA256SUMS*
             build/out/partition-table.txt
             build/test/qemu-boot.log
+            build/test/peppery-boot.png
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
