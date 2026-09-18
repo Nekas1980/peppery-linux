@@ -1,6 +1,6 @@
 name: peppery-linux-amd64
 display-name: Peppery Linux 0.1 amd64
-revision: 1
+revision: 2
 architecture: amd64
 series: resolute
 class: preinstalled
@@ -54,6 +54,10 @@ customization:
     - name: python3-pip
     - name: build-essential
     - name: ca-certificates
+    - name: grub-efi-amd64
+    - name: grub-efi-amd64-bin
+    - name: grub-efi-amd64-signed
+    - name: shim-signed
 
   extra-snaps:
     - name: snapd
