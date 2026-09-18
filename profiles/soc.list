@@ -1,0 +1,8 @@
+auditd
+nmap
+rsyslog
+suricata
+tcpdump
+tshark
+ufw
+wireshark
