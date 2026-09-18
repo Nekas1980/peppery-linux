@@ -1,0 +1,30 @@
+name: Export Peppery Boot Preview
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/export-boot-preview.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export-preview:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Upload boot preview images
+        uses: actions/upload-artifact@v4
+        with:
+          name: peppery-boot-preview
+          path: |
+            docs/images/peppery-boot-20s.png
+            docs/images/peppery-boot-60s.png
+            docs/images/peppery-boot-120s.png
+          if-no-files-found: error
+          retention-days: 14
