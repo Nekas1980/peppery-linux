@@ -1,0 +1,11 @@
+ca-certificates
+curl
+git
+htop
+jq
+nano
+openssh-client
+rsync
+ufw
+vim
+wget
