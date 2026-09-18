@@ -1,0 +1,77 @@
+name: peppery-linux-amd64
+display-name: Peppery Linux 0.1 amd64
+revision: 1
+architecture: amd64
+series: resolute
+class: preinstalled
+kernel: linux-image-generic
+
+gadget:
+  url: https://github.com/canonical/pc-gadget
+  branch: classic
+  type: git
+
+rootfs:
+  components:
+    - main
+    - restricted
+    - universe
+    - multiverse
+  archive: ubuntu
+  mirror: http://archive.ubuntu.com/ubuntu/
+  pocket: updates
+  seed:
+    urls:
+      - https://git.launchpad.net/~ubuntu-core-dev/ubuntu-seeds/+git/
+    names:
+      - server
+      - minimal
+      - standard
+    branch: resolute
+    vcs: true
+  sources-list-deb822: true
+
+customization:
+  components:
+    - main
+    - restricted
+    - universe
+    - multiverse
+  pocket: updates
+
+  extra-packages:
+    - name: ubuntu-desktop-minimal
+    - name: network-manager
+    - name: git
+    - name: curl
+    - name: wget
+    - name: vim
+    - name: nano
+    - name: htop
+    - name: ufw
+    - name: openssh-client
+    - name: python3
+    - name: python3-pip
+    - name: build-essential
+    - name: ca-certificates
+
+  extra-snaps:
+    - name: snapd
+
+  manual:
+    make-dirs:
+      - path: /usr/local/share/peppery
+        permissions: 0755
+    copy-file:
+      - source: ../config/branding/etc/peppery-release
+        destination: /etc/peppery-release
+
+artifacts:
+  img:
+    - name: peppery-linux-0.1.0-dev-amd64.img
+  manifest:
+    name: peppery-linux-0.1.0-dev-amd64.manifest
+  manifest-v2:
+    name: peppery-linux-0.1.0-dev-amd64.manifest-v2
+  filelist:
+    name: peppery-linux-0.1.0-dev-amd64.filelist
