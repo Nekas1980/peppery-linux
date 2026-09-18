@@ -5,6 +5,7 @@ on:
     branches: ["main"]
     paths:
       - ".github/workflows/export-boot-preview.yml"
+      - "docs/images/**"
   workflow_dispatch:
 
 permissions:
@@ -23,8 +24,6 @@ jobs:
         with:
           name: peppery-boot-preview
           path: |
-            docs/images/peppery-boot-20s.png
-            docs/images/peppery-boot-60s.png
-            docs/images/peppery-boot-120s.png
+            docs/images/peppery-boot-*.png
           if-no-files-found: error
           retention-days: 14
