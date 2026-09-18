@@ -1,0 +1,135 @@
+name: Build Peppery Linux Image
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - "image-definitions/**"
+      - "config/**"
+      - "scripts/build.sh"
+      - "scripts/check.sh"
+      - ".github/workflows/build-image.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: peppery-image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-image:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show disk space
+        run: df -h
+
+      - name: Install host dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git \
+            snapd \
+            ubuntu-dev-tools \
+            qemu-utils \
+            qemu-system-x86 \
+            ovmf \
+            python3 \
+            python3-yaml \
+            shellcheck \
+            zstd
+
+      - name: Install ubuntu-image
+        run: |
+          sudo snap install ubuntu-image --classic
+          /snap/bin/ubuntu-image --version
+
+      - name: Validate repository
+        run: bash scripts/check.sh
+
+      - name: Build Peppery Linux image
+        run: |
+          sudo bash scripts/build.sh
+          sudo chown -R "$USER:$USER" build
+          ls -lah build/out
+
+      - name: Inspect generated image
+        shell: bash
+        run: |
+          set -euo pipefail
+          IMAGE="$(find build/out -maxdepth 1 -type f -name '*.img' | head -n 1)"
+          test -n "$IMAGE"
+          echo "PEPPERY_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          qemu-img info "$IMAGE"
+          sudo fdisk -l "$IMAGE" | tee build/out/partition-table.txt
+          sha256sum "$IMAGE" | tee build/out/SHA256SUMS
+
+      - name: QEMU boot smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p build/test
+          set +e
+          timeout 120s qemu-system-x86_64 \
+            -machine accel=tcg \
+            -m 2048 \
+            -smp 2 \
+            -drive "file=$PEPPERY_IMAGE,format=raw,if=virtio" \
+            -nographic \
+            -no-reboot \
+            > build/test/qemu-boot.log 2>&1
+          STATUS=$?
+          set -e
+
+          echo "QEMU exit status: $STATUS"
+          tail -n 200 build/test/qemu-boot.log || true
+
+          if grep -Eiq 'Linux version|systemd|Ubuntu|GRUB' build/test/qemu-boot.log; then
+            echo "PEPPERY_QEMU_BOOT_EVIDENCE=found" >> "$GITHUB_ENV"
+            echo "Boot evidence detected in QEMU serial output."
+          else
+            echo "PEPPERY_QEMU_BOOT_EVIDENCE=not-detected" >> "$GITHUB_ENV"
+            echo "::warning::No serial boot evidence detected. The image may still boot graphically; manual VM validation remains required."
+          fi
+
+      - name: Compress image
+        shell: bash
+        run: |
+          set -euo pipefail
+          zstd -T0 -10 --rm "$PEPPERY_IMAGE"
+          sha256sum "$PEPPERY_IMAGE.zst" | tee build/out/SHA256SUMS.zst
+          ls -lh build/out
+
+      - name: Upload Peppery image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: peppery-linux-0.1.0-dev-amd64
+          path: |
+            build/out/*.img.zst
+            build/out/*.manifest
+            build/out/*.manifest-v2
+            build/out/*.filelist
+            build/out/SHA256SUMS*
+            build/out/partition-table.txt
+            build/test/qemu-boot.log
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+      - name: Build summary
+        run: |
+          {
+            echo "## Peppery Linux image build"
+            echo
+            echo "- Version: 0.1.0-dev"
+            echo "- Base: Ubuntu 26.04 LTS (Resolute)"
+            echo "- Architecture: amd64"
+            echo "- QEMU serial evidence: `$PEPPERY_QEMU_BOOT_EVIDENCE`"
+            echo "- Download: Actions > this workflow run > Artifacts"
+          } >> "$GITHUB_STEP_SUMMARY"
