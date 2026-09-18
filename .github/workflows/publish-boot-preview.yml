@@ -101,6 +101,9 @@ jobs:
           sleep 60
           capture_screen "boot-120s"
 
+          sleep 180
+          capture_screen "boot-300s"
+
           printf 'quit\n' | socat - "UNIX-CONNECT:$MONITOR" || true
 
           echo "===== QEMU SERIAL LOG ====="
@@ -131,6 +134,7 @@ jobs:
             '- `peppery-boot-20s.png`: aproximadamente 20 segundos após o arranque.' \
             '- `peppery-boot-60s.png`: aproximadamente 60 segundos após o arranque.' \
             '- `peppery-boot-120s.png`: aproximadamente 120 segundos após o arranque.' \
+            '- `peppery-boot-300s.png`: aproximadamente 300 segundos após o arranque.' \
             > docs/images/README.md
 
           git config user.name "github-actions[bot]"
