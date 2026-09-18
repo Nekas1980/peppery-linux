@@ -110,12 +110,7 @@ jobs:
           fi
 
           if [[ -f build/test/peppery-boot.ppm ]]; then
-            python3 - <<'PY'
-from PIL import Image
-image = Image.open("build/test/peppery-boot.ppm")
-image.save("build/test/peppery-boot.png")
-print("Saved build/test/peppery-boot.png")
-PY
+            python3 -c 'from PIL import Image; image=Image.open("build/test/peppery-boot.ppm"); image.save("build/test/peppery-boot.png"); print("Saved build/test/peppery-boot.png")'
           else
             echo "::warning::QEMU did not produce a VGA screenshot."
           fi
