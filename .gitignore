@@ -1,0 +1,24 @@
+# Build output
+build/
+*.img
+*.iso
+*.qcow2
+*.manifest
+*.manifest-v2
+
+# Temporary files
+*.tmp
+*.log
+.cache/
+work/
+
+# Editors
+.vscode/
+.idea/
+
+# Secrets
+.env
+.env.*
+*.key
+*.pem
+!*.example
