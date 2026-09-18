@@ -1,86 +1,133 @@
 # Peppery Linux
 
-Peppery Linux é uma distribuição Linux experimental baseada em Debian, criada para aprendizagem, desenvolvimento, administração de sistemas e laboratório de cibersegurança.
+**Peppery Linux** é uma distribuição Linux em desenvolvimento baseada em **Ubuntu 26.04 LTS (Resolute Raccoon)**.
 
-## Objetivo
+O projeto tem como objetivo criar uma distribuição própria, reproduzível e documentada para desktop, desenvolvimento, administração de sistemas e laboratório de cibersegurança defensiva.
 
-Construir uma distribuição própria, reproduzível e documentada, começando por uma ISO Live baseada em Debian e evoluindo para:
+## Base técnica
 
-- ambiente gráfico XFCE;
-- conjunto de ferramentas de administração e desenvolvimento;
-- perfil opcional de cibersegurança defensiva;
-- branding Peppery Linux;
-- ISO Live/instalável;
-- pipeline de validação no GitHub;
-- documentação técnica para estudo e portefólio.
+- Base: Ubuntu 26.04 LTS
+- Arquitetura inicial: amd64
+- Ambiente gráfico: Ubuntu Desktop Minimal
+- Motor de imagem: Canonical `ubuntu-image`
+- Formato inicial: imagem de disco bootável `.img`
+- Futuro: ISO Live/Installer Peppery
+- Estado: `0.1.0-dev`
 
-## Estado
+## Objetivos
 
-**Fase 0 — bootstrap do projeto**
-
-A base inicial usa `live-build`, a ferramenta oficial do ecossistema Debian para criar imagens Live.
-
-## Requisitos de build
-
-Recomendado: Debian/Ubuntu/WSL2 com pelo menos 20 GB livres.
-
-```bash
-sudo apt update
-sudo apt install -y live-build debootstrap squashfs-tools xorriso isolinux syslinux-common
-```
-
-> Para gerar e testar uma ISO completa, o ideal é usar uma máquina virtual Linux ou um host Debian/Ubuntu. O WSL2 pode servir para desenvolvimento dos ficheiros do projeto, mas não é o ambiente mais fiável para todas as etapas de criação/teste de uma ISO bootável.
-
-## Build rápido
-
-```bash
-git clone https://github.com/Nekas1980/peppery-linux.git
-cd peppery-linux
-bash scripts/configure.sh
-sudo lb build
-```
-
-A imagem resultante deverá surgir na raiz do projeto, normalmente como `live-image-amd64.hybrid.iso`.
+1. Construir uma imagem Ubuntu personalizada e reproduzível.
+2. Adicionar identidade própria Peppery Linux.
+3. Criar perfis Desktop, Developer e Security Lab.
+4. Automatizar validações no GitHub.
+5. Testar em máquina virtual antes de instalar em hardware real.
+6. Evoluir para ISO Live/Installer.
+7. Publicar releases e documentação técnica.
 
 ## Estrutura
 
 ```text
 peppery-linux/
-├── .github/workflows/       validações automáticas
+├── .github/workflows/
+│   └── lint.yml
 ├── config/
-│   ├── hooks/               personalização executada durante o build
-│   ├── includes.chroot/     ficheiros copiados para o sistema final
-│   └── package-lists/       pacotes instalados na ISO
-├── docs/                    arquitetura e roadmap
-├── scripts/                 configuração, build e limpeza
+│   └── branding/
+│       └── etc/
+│           └── peppery-release
+├── docs/
+│   ├── ARCHITECTURE.md
+│   └── ROADMAP.md
+├── image-definitions/
+│   └── peppery-amd64.yaml
+├── scripts/
+│   ├── bootstrap-host.sh
+│   ├── build.sh
+│   └── check.sh
+├── .gitignore
 ├── Makefile
+├── README.md
 └── VERSION
 ```
 
-## Comandos principais
+## Preparar uma máquina Ubuntu
+
+Recomendado: máquina virtual ou computador com Ubuntu e pelo menos 25–30 GB livres.
 
 ```bash
-make configure
-make build
-make clean
-make distclean
+git clone https://github.com/Nekas1980/peppery-linux.git
+cd peppery-linux
+sudo bash scripts/bootstrap-host.sh
+```
+
+## Validar o projeto
+
+```bash
 make check
 ```
 
-## Roadmap resumido
+## Construir Peppery Linux
 
-1. Gerar a primeira ISO Live.
-2. Arrancar a ISO numa VM.
-3. Aplicar branding Peppery.
-4. Adicionar instalador.
-5. Criar perfis Desktop, Developer e Security Lab.
-6. Automatizar testes de build.
-7. Publicar releases versionadas.
+```bash
+make build
+```
+
+O build usa:
+
+```bash
+sudo ubuntu-image --workdir=build/work --output-dir=build/out \
+  classic image-definitions/peppery-amd64.yaml
+```
+
+Os artefactos são colocados em:
+
+```text
+build/out/
+```
+
+## Pacotes iniciais
+
+A imagem inclui uma base Ubuntu e acrescenta, entre outros:
+
+- `ubuntu-desktop-minimal`
+- `network-manager`
+- `git`
+- `curl`
+- `vim`
+- `nano`
+- `htop`
+- `ufw`
+- `openssh-client`
+- `python3`
+- `python3-pip`
+- `build-essential`
 
 ## Segurança
 
-Ferramentas de segurança que venham a ser integradas neste projeto destinam-se a laboratórios autorizados, formação e administração defensiva.
+O perfil de cibersegurança será construído por módulos. As ferramentas incluídas destinam-se a administração, diagnóstico, formação e laboratórios autorizados.
 
-## Versão inicial
+Não serão guardadas palavras-passe, tokens, chaves privadas ou credenciais no repositório.
+
+## Desenvolvimento
+
+Antes de cada alteração:
+
+```bash
+make check
+git status
+```
+
+Depois:
+
+```bash
+git add .
+git commit -m "descricao da alteracao"
+git push
+```
+
+## Próximos marcos
+
+Consulta `docs/ROADMAP.md`.
+
+## Versão
 
 `0.1.0-dev`
