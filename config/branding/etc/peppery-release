@@ -1,0 +1,6 @@
+NAME="Peppery Linux"
+VERSION="0.1.0-dev"
+BASE="Ubuntu 26.04 LTS"
+CODENAME="resolute"
+ARCH="amd64"
+PROJECT_URL="https://github.com/Nekas1980/peppery-linux"
