@@ -13,11 +13,17 @@ permissions:
 
 jobs:
   publish-preview:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install QEMU preview tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y qemu-system-x86 ovmf zstd socat python3-pil
 
       - name: Download successful Peppery image artifact
         uses: actions/download-artifact@v4
@@ -28,29 +34,114 @@ jobs:
           repository: Nekas1980/peppery-linux
           run-id: 35395963779
 
-      - name: Locate boot screenshot
+      - name: Decompress Peppery image
         shell: bash
         run: |
           set -euo pipefail
-          SCREENSHOT="$(find downloaded-artifact -type f -name 'peppery-boot.png' | head -n 1)"
-          test -n "$SCREENSHOT"
-          mkdir -p docs/images
-          cp "$SCREENSHOT" docs/images/peppery-boot.png
-          file docs/images/peppery-boot.png
-          ls -lh docs/images/peppery-boot.png
+          IMAGE_ZST="$(find downloaded-artifact -type f -name '*.img.zst' | head -n 1)"
+          test -n "$IMAGE_ZST"
+          unzstd -f "$IMAGE_ZST"
+          IMAGE="${IMAGE_ZST%.zst}"
+          test -f "$IMAGE"
+          echo "PEPPERY_IMAGE=$IMAGE" >> "$GITHUB_ENV"
+          ls -lh "$IMAGE"
 
-      - name: Commit real boot screenshot
+      - name: Boot Peppery with UEFI and capture real screens
         shell: bash
         run: |
           set -euo pipefail
+
+          mkdir -p docs/images build/preview
+
+          OVMF_CODE="/usr/share/OVMF/OVMF_CODE_4M.fd"
+          OVMF_VARS_SOURCE="/usr/share/OVMF/OVMF_VARS_4M.fd"
+          OVMF_VARS="$PWD/build/preview/OVMF_VARS.fd"
+          MONITOR="/tmp/peppery-preview-monitor.sock"
+          SERIAL_LOG="$PWD/build/preview/qemu-boot.log"
+
+          test -f "$OVMF_CODE"
+          test -f "$OVMF_VARS_SOURCE"
+          cp "$OVMF_VARS_SOURCE" "$OVMF_VARS"
+          rm -f "$MONITOR"
+
+          qemu-system-x86_64 \
+            -machine accel=tcg \
+            -m 3072 \
+            -smp 2 \
+            -drive "if=pflash,format=raw,readonly=on,file=$OVMF_CODE" \
+            -drive "if=pflash,format=raw,file=$OVMF_VARS" \
+            -drive "file=$PEPPERY_IMAGE,format=raw,if=virtio" \
+            -vga std \
+            -display none \
+            -serial "file:$SERIAL_LOG" \
+            -monitor "unix:$MONITOR,server=on,wait=off" \
+            -no-reboot \
+            -daemonize
+
+          capture_screen() {
+            local label="$1"
+            local ppm="$PWD/docs/images/peppery-${label}.ppm"
+            local png="$PWD/docs/images/peppery-${label}.png"
+
+            printf 'screendump %s\n' "$ppm" | socat - "UNIX-CONNECT:$MONITOR"
+            sleep 2
+            test -f "$ppm"
+            python3 -c 'import sys; from PIL import Image; Image.open(sys.argv[1]).save(sys.argv[2])' "$ppm" "$png"
+            rm -f "$ppm"
+            file "$png"
+            ls -lh "$png"
+          }
+
+          sleep 20
+          capture_screen "boot-20s"
+
+          sleep 40
+          capture_screen "boot-60s"
+
+          sleep 60
+          capture_screen "boot-120s"
+
+          printf 'quit\n' | socat - "UNIX-CONNECT:$MONITOR" || true
+
+          echo "===== QEMU SERIAL LOG ====="
+          cat "$SERIAL_LOG" || true
+
+          if grep -Eiq 'Linux version|systemd|Reached target|Ubuntu|GNU/Linux' "$SERIAL_LOG"; then
+            echo "BOOT_EVIDENCE=linux" >> "$GITHUB_ENV"
+            echo "Linux boot evidence detected."
+          else
+            echo "BOOT_EVIDENCE=graphics-only" >> "$GITHUB_ENV"
+            echo "::warning::No Linux serial evidence detected. Screenshots will be published for visual inspection."
+          fi
+
+      - name: Commit real VM screenshots
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > docs/images/README.md <<EOF
+# Peppery Linux — capturas reais de arranque
+
+Estas imagens foram capturadas automaticamente a partir da imagem
+`peppery-linux-0.1.0-dev-amd64.img`, arrancada em QEMU com firmware UEFI/OVMF.
+
+Origem do build: GitHub Actions run 35395963779.
+
+Evidência serial reportada pelo teste: `$BOOT_EVIDENCE`.
+
+- `peppery-boot-20s.png`: aproximadamente 20 segundos após o arranque.
+- `peppery-boot-60s.png`: aproximadamente 60 segundos após o arranque.
+- `peppery-boot-120s.png`: aproximadamente 120 segundos após o arranque.
+EOF
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/images/peppery-boot.png
+          git add docs/images/
 
           if git diff --cached --quiet; then
             echo "Boot preview is already up to date."
             exit 0
           fi
 
-          git commit -m "docs: add real Peppery Linux boot screenshot"
+          git commit -m "docs: add real Peppery VM boot captures"
           git push
