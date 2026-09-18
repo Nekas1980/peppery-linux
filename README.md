@@ -1,8 +1,12 @@
 # Peppery Linux
 
-**Peppery Linux** é uma distribuição Linux em desenvolvimento baseada em **Ubuntu 26.04 LTS (Resolute Raccoon)**.
+**Peppery Linux** é uma distribuição Linux em desenvolvimento baseada em **Ubuntu 26.04 LTS (Resolute Raccoon)**, orientada para três áreas principais:
 
-O projeto tem como objetivo criar uma distribuição própria, reproduzível e documentada para desktop, desenvolvimento, administração de sistemas e laboratório de cibersegurança defensiva.
+1. **Programação e bases de dados**
+2. **Forense digital**
+3. **Cibersegurança, SOC e laboratório de pentesting autorizado**
+
+A ideia é construir uma workstation técnica própria, reproduzível e modular, sem transformar a base Ubuntu numa cópia instável do Kali Linux.
 
 ## Base técnica
 
@@ -10,48 +14,72 @@ O projeto tem como objetivo criar uma distribuição própria, reproduzível e d
 - Arquitetura inicial: amd64
 - Ambiente gráfico: Ubuntu Desktop Minimal
 - Motor de imagem: Canonical `ubuntu-image`
-- Formato inicial: imagem de disco bootável `.img`
+- Formato inicial: imagem bootável `.img`
 - Futuro: ISO Live/Installer Peppery
 - Estado: `0.1.0-dev`
 
-## Objetivos
+## Arquitetura funcional
 
-1. Construir uma imagem Ubuntu personalizada e reproduzível.
-2. Adicionar identidade própria Peppery Linux.
-3. Criar perfis Desktop, Developer e Security Lab.
-4. Automatizar validações no GitHub.
-5. Testar em máquina virtual antes de instalar em hardware real.
-6. Evoluir para ISO Live/Installer.
-7. Publicar releases e documentação técnica.
+```text
+Peppery Linux
+├── Core
+├── Dev
+├── Data
+├── Digital Forensics
+├── SOC / Network Analysis
+└── Pentest Lab (opcional)
+```
 
-## Estrutura
+### Core
+Base de sistema, rede, SSH, firewall e utilitários.
+
+### Dev
+Python, Node.js, Git, compilação e ferramentas de desenvolvimento.
+
+### Data
+PostgreSQL, MariaDB e SQLite.
+
+### Digital Forensics
+Sleuth Kit, Autopsy, TestDisk/PhotoRec, GNU ddrescue, Foremost, ExifTool, YARA e Binwalk.
+
+### SOC / Network Analysis
+Wireshark, tshark, tcpdump, Nmap, Suricata, auditd e futura integração Wazuh.
+
+### Pentest Lab
+Perfil opcional para ambientes de formação e testes autorizados, com Nmap, Hydra, John the Ripper, Hashcat, SQLMap, Nikto e Gobuster.
+
+## Estrutura do repositório
 
 ```text
 peppery-linux/
 ├── .github/workflows/
-│   └── lint.yml
 ├── config/
 │   └── branding/
-│       └── etc/
-│           └── peppery-release
 ├── docs/
 │   ├── ARCHITECTURE.md
-│   └── ROADMAP.md
+│   ├── FORENSICS.md
+│   ├── ROADMAP.md
+│   └── SECURITY_LAB.md
 ├── image-definitions/
 │   └── peppery-amd64.yaml
+├── profiles/
+│   ├── core.list
+│   ├── dev.list
+│   ├── data.list
+│   ├── forensics.list
+│   ├── soc.list
+│   └── pentest.list
 ├── scripts/
 │   ├── bootstrap-host.sh
 │   ├── build.sh
-│   └── check.sh
-├── .gitignore
+│   ├── check.sh
+│   └── peppery-profile.sh
 ├── Makefile
 ├── README.md
 └── VERSION
 ```
 
 ## Preparar uma máquina Ubuntu
-
-Recomendado: máquina virtual ou computador com Ubuntu e pelo menos 25–30 GB livres.
 
 ```bash
 git clone https://github.com/Nekas1980/peppery-linux.git
@@ -65,17 +93,10 @@ sudo bash scripts/bootstrap-host.sh
 make check
 ```
 
-## Construir Peppery Linux
+## Construir a imagem
 
 ```bash
 make build
-```
-
-O build usa:
-
-```bash
-sudo ubuntu-image --workdir=build/work --output-dir=build/out \
-  classic image-definitions/peppery-amd64.yaml
 ```
 
 Os artefactos são colocados em:
@@ -84,28 +105,87 @@ Os artefactos são colocados em:
 build/out/
 ```
 
-## Pacotes iniciais
+## Perfis Peppery
 
-A imagem inclui uma base Ubuntu e acrescenta, entre outros:
+Listar:
 
-- `ubuntu-desktop-minimal`
-- `network-manager`
-- `git`
-- `curl`
-- `vim`
-- `nano`
-- `htop`
-- `ufw`
-- `openssh-client`
-- `python3`
-- `python3-pip`
-- `build-essential`
+```bash
+make profiles
+```
 
-## Segurança
+Ver um perfil:
 
-O perfil de cibersegurança será construído por módulos. As ferramentas incluídas destinam-se a administração, diagnóstico, formação e laboratórios autorizados.
+```bash
+make profile-show PROFILE=forensics
+```
 
-Não serão guardadas palavras-passe, tokens, chaves privadas ou credenciais no repositório.
+Instalar:
+
+```bash
+make profile-install PROFILE=forensics
+```
+
+Ou diretamente:
+
+```bash
+sudo bash scripts/peppery-profile.sh install dev data forensics soc
+```
+
+O perfil `pentest` é opcional e não faz parte da instalação base.
+
+## Política Kali / Ubuntu
+
+Peppery Linux **não mistura os repositórios Kali com os repositórios Ubuntu**.
+
+Ferramentas normalmente associadas ao Kali podem ser incluídas no Peppery quando exista uma origem compatível e controlada.
+
+Prioridade:
+
+1. repositório oficial Ubuntu;
+2. fonte oficial do projeto;
+3. pacote oficial assinado;
+4. container/virtualenv;
+5. compilação documentada a partir do código-fonte.
+
+## Forense digital
+
+A vertente forense terá prioridade no desenvolvimento do Peppery.
+
+Está prevista a criação de um utilitário próprio:
+
+```text
+peppery-forensic
+```
+
+para gestão de casos, evidência, hashes, logs, cadeia de custódia e relatórios.
+
+Consulta `docs/FORENSICS.md`.
+
+## Wazuh e laboratório de segurança
+
+O Peppery será preparado para integração com Wazuh, mantendo Kali como uma máquina de laboratório independente quando necessário.
+
+```text
+Peppery Linux ----\
+                  >---- Wazuh Manager / Dashboard
+Kali Lab --------/
+Outros hosts ----/
+```
+
+Consulta `docs/SECURITY_LAB.md`.
+
+## Segurança e utilização
+
+As ferramentas de segurança destinam-se a:
+
+- aprendizagem;
+- administração;
+- análise defensiva;
+- sistemas próprios;
+- CTFs e laboratórios;
+- ambientes com autorização explícita.
+
+Não devem ser guardados no repositório passwords, tokens, chaves privadas ou outras credenciais.
 
 ## Desenvolvimento
 
@@ -124,7 +204,7 @@ git commit -m "descricao da alteracao"
 git push
 ```
 
-## Próximos marcos
+## Roadmap
 
 Consulta `docs/ROADMAP.md`.
 
