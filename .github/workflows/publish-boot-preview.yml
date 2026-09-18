@@ -119,20 +119,19 @@ jobs:
         run: |
           set -euo pipefail
 
-          cat > docs/images/README.md <<EOF
-# Peppery Linux — capturas reais de arranque
-
-Estas imagens foram capturadas automaticamente a partir da imagem
-`peppery-linux-0.1.0-dev-amd64.img`, arrancada em QEMU com firmware UEFI/OVMF.
-
-Origem do build: GitHub Actions run 35395963779.
-
-Evidência serial reportada pelo teste: `$BOOT_EVIDENCE`.
-
-- `peppery-boot-20s.png`: aproximadamente 20 segundos após o arranque.
-- `peppery-boot-60s.png`: aproximadamente 60 segundos após o arranque.
-- `peppery-boot-120s.png`: aproximadamente 120 segundos após o arranque.
-EOF
+          printf '%s\n' \
+            '# Peppery Linux — capturas reais de arranque' \
+            '' \
+            'Estas imagens foram capturadas automaticamente a partir da imagem `peppery-linux-0.1.0-dev-amd64.img`, arrancada em QEMU com firmware UEFI/OVMF.' \
+            '' \
+            'Origem do build: GitHub Actions run 35395963779.' \
+            '' \
+            "Evidência serial reportada pelo teste: \`$BOOT_EVIDENCE\`." \
+            '' \
+            '- `peppery-boot-20s.png`: aproximadamente 20 segundos após o arranque.' \
+            '- `peppery-boot-60s.png`: aproximadamente 60 segundos após o arranque.' \
+            '- `peppery-boot-120s.png`: aproximadamente 120 segundos após o arranque.' \
+            > docs/images/README.md
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
