@@ -82,6 +82,7 @@ jobs:
           OVMF_VARS_SOURCE="/usr/share/OVMF/OVMF_VARS_4M.fd"
           OVMF_VARS="build/test/OVMF_VARS.fd"
           MONITOR="/tmp/peppery-qemu-monitor.sock"
+          SCREENSHOT_PPM="$PWD/build/test/peppery-boot.ppm"
 
           test -f "$OVMF_CODE"
           test -f "$OVMF_VARS_SOURCE"
@@ -106,7 +107,7 @@ jobs:
           sleep 150
 
           if [[ -S "$MONITOR" ]]; then
-            printf 'screendump build/test/peppery-boot.ppm\nquit\n' | socat - "UNIX-CONNECT:$MONITOR" || true
+            printf 'screendump %s\nquit\n' "$SCREENSHOT_PPM" | socat - "UNIX-CONNECT:$MONITOR" || true
           fi
 
           if [[ -f build/test/peppery-boot.ppm ]]; then
