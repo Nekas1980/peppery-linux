@@ -1,0 +1,58 @@
+name: Publish Peppery Boot Screenshot
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/publish-boot-screenshot.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-screenshot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download successful Peppery build artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARTIFACT_ID: "10567628512"
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/peppery-artifact
+          gh api \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "/repos/${GITHUB_REPOSITORY}/actions/artifacts/${ARTIFACT_ID}/zip" \
+            > /tmp/peppery-artifact/peppery.zip
+          ls -lh /tmp/peppery-artifact/peppery.zip
+
+      - name: Extract real QEMU boot screenshot
+        run: |
+          set -euo pipefail
+          mkdir -p docs/images
+          unzip -j /tmp/peppery-artifact/peppery.zip \
+            'build/test/peppery-boot.png' \
+            -d /tmp/peppery-screen
+          cp /tmp/peppery-screen/peppery-boot.png docs/images/peppery-boot.png
+          file docs/images/peppery-boot.png
+          ls -lh docs/images/peppery-boot.png
+
+      - name: Commit screenshot to repository
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/images/peppery-boot.png
+          if git diff --cached --quiet; then
+            echo "Screenshot already current."
+            exit 0
+          fi
+          git commit -m "docs: publish real Peppery QEMU boot screenshot"
+          git push
