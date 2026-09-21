@@ -26,7 +26,7 @@ jobs:
           path: release-input
           github-token: ${{ github.token }}
           repository: ${{ github.repository }}
-          run-id: 35449322956
+          run-id: 35664030043
 
       - name: Prepare split release files
         shell: bash
@@ -46,29 +46,17 @@ jobs:
 
           sha256sum release/peppery-linux-0.1.0-dev-amd64.img.zst.part-* > release/PARTS-SHA256SUMS
 
-          cat > release/README-DOWNLOAD.txt <<'EOF'
-Peppery Linux 0.1.0-dev amd64
-
-1. Download all files named:
-   peppery-linux-0.1.0-dev-amd64.img.zst.part-XX
-
-2. Put every part in the same folder.
-
-3. Verify the downloaded parts:
-   sha256sum -c PARTS-SHA256SUMS
-
-4. Reassemble:
-   cat peppery-linux-0.1.0-dev-amd64.img.zst.part-* > peppery-linux-0.1.0-dev-amd64.img.zst
-
-5. Verify the reconstructed compressed image:
-   sha256sum -c SHA256SUMS.zst
-
-6. Decompress:
-   unzstd peppery-linux-0.1.0-dev-amd64.img.zst
-
-The resulting raw image is ready to import into QEMU/libvirt/Cockpit.
-EOF
-
+          printf '%s\n' \
+            'Peppery Linux 0.1.0-dev amd64' \
+            '' \
+            '1. Download all peppery-linux-0.1.0-dev-amd64.img.zst.part-* files.' \
+            '2. Put every part in the same folder.' \
+            '3. Verify: sha256sum -c PARTS-SHA256SUMS' \
+            '4. Reassemble: cat peppery-linux-0.1.0-dev-amd64.img.zst.part-* > peppery-linux-0.1.0-dev-amd64.img.zst' \
+            '5. Verify: sha256sum -c SHA256SUMS.zst' \
+            '6. Decompress: unzstd peppery-linux-0.1.0-dev-amd64.img.zst' \
+            '7. Import the resulting .img into QEMU/libvirt/Cockpit.' \
+            > release/README-DOWNLOAD.txt
           ls -lh release
 
       - name: Create or update GitHub prerelease
