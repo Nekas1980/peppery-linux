@@ -1,0 +1,89 @@
+name: Publish Peppery Dev Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+    paths:
+      - ".github/workflows/publish-dev-release.yml"
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download successful Peppery image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: peppery-linux-0.1.0-dev-amd64
+          path: release-input
+          github-token: ${{ github.token }}
+          repository: ${{ github.repository }}
+          run-id: 35449322956
+
+      - name: Prepare split release files
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          IMAGE="release-input/out/peppery-linux-0.1.0-dev-amd64.img.zst"
+          if [[ ! -f "$IMAGE" ]]; then
+            IMAGE="$(find release-input -type f -name 'peppery-linux-0.1.0-dev-amd64.img.zst' | head -n 1)"
+          fi
+          test -n "$IMAGE"
+          test -f "$IMAGE"
+
+          split -b 900M -d -a 2 "$IMAGE" "release/peppery-linux-0.1.0-dev-amd64.img.zst.part-"
+
+          cp release-input/out/SHA256SUMS.zst release/ 2>/dev/null ||             find release-input -type f -name 'SHA256SUMS.zst' -exec cp {} release/ \;
+
+          sha256sum release/peppery-linux-0.1.0-dev-amd64.img.zst.part-* > release/PARTS-SHA256SUMS
+
+          cat > release/README-DOWNLOAD.txt <<'EOF'
+Peppery Linux 0.1.0-dev amd64
+
+1. Download all files named:
+   peppery-linux-0.1.0-dev-amd64.img.zst.part-XX
+
+2. Put every part in the same folder.
+
+3. Verify the downloaded parts:
+   sha256sum -c PARTS-SHA256SUMS
+
+4. Reassemble:
+   cat peppery-linux-0.1.0-dev-amd64.img.zst.part-* > peppery-linux-0.1.0-dev-amd64.img.zst
+
+5. Verify the reconstructed compressed image:
+   sha256sum -c SHA256SUMS.zst
+
+6. Decompress:
+   unzstd peppery-linux-0.1.0-dev-amd64.img.zst
+
+The resulting raw image is ready to import into QEMU/libvirt/Cockpit.
+EOF
+
+          ls -lh release
+
+      - name: Create or update GitHub prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v0.1.0-dev"
+
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" release/* --clobber
+          else
+            gh release create "$TAG" release/* \
+              --prerelease \
+              --title "Peppery Linux 0.1.0-dev" \
+              --notes "Development image for Peppery Linux. Download all .part-* files, verify PARTS-SHA256SUMS, concatenate them, verify SHA256SUMS.zst, then decompress the .img.zst before importing it into Cockpit/QEMU."
+          fi
